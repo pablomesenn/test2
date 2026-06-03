@@ -1,0 +1,24 @@
+replicaCount: 1
+
+image:
+  repository: dns-interceptor
+  tag: dev
+  pullPolicy: Never  # usa imagen local de minikube
+
+service:
+  port: 53
+  protocol: UDP
+
+config:
+  listenAddr: "0.0.0.0:53"
+  upstreamDns: "8.8.8.8:53"
+  defaultZone: "10.0.0.99"
+  # Formato: "CR=10.0.0.2,US=10.0.0.1"
+  zoneMap: "CR=10.0.0.2,US=10.0.0.1"
+  # Formato: "dominio1.com,dominio2.com"
+  managedDomains: "midominio.test,ejemplo.test"
+  geoipPath: "/app/geoip/dbip-country-lite.mmdb"
+
+geoip:
+  # Ruta local al archivo .mmdb (se monta como ConfigMap binario)
+  hostPath: ""

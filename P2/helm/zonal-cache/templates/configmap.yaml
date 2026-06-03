@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-cache-config
+  namespace: {{ .Release.Namespace }}
+data:
+  LISTEN_ADDR: {{ .Values.config.listenAddr | quote }}
+  CACHE_DIR: {{ .Values.config.cacheDir | quote }}
+  CACHE_MAX_SIZE_BYTES: {{ .Values.config.cacheMaxSizeBytes | quote }}
+  CACHE_POLICY: {{ .Values.config.cachePolicy | quote }}
+  FIREBASE_PROJECT_ID: {{ .Values.config.firebaseProjectId | quote }}
+  NODE_API_URL: {{ .Values.config.nodeApiUrl | quote }}
+  BOOTSTRAP_API_KEYS: {{ .Values.config.bootstrapApiKeys | quote }}
+  GOOGLE_APPLICATION_CREDENTIALS: "/app/secrets/firebase-service-account.json"

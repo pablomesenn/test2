@@ -1,0 +1,26 @@
+replicaCount: 1
+
+image:
+  repository: zonal-cache
+  tag: dev
+  pullPolicy: Never
+
+service:
+  port: 8080
+  protocol: TCP
+
+config:
+  listenAddr: "0.0.0.0:8080"
+  cacheDir: "/app/cache_data"
+  cacheMaxSizeBytes: "104857600"
+  cachePolicy: "LRU"
+  firebaseProjectId: "ic7602-p2-79108"
+  nodeApiUrl: "http://localhost:3000"
+  bootstrapApiKeys: "test-key-123:admin"
+
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: "standard"
+
+firebaseServiceAccount: ""

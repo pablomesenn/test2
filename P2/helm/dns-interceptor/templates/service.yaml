@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-dns
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: dns-interceptor
+    release: {{ .Release.Name }}
+spec:
+  selector:
+    app: dns-interceptor
+    release: {{ .Release.Name }}
+  ports:
+    - port: 53
+      targetPort: 53
+      protocol: UDP
+  type: ClusterIP

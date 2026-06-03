@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cache
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: zonal-cache
+    release: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: zonal-cache
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: zonal-cache
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: zonal-cache
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-cache-config
+          volumeMounts:
+            - name: cache-storage
+              mountPath: /app/cache_data
+            - name: firebase-secret
+              mountPath: /app/secrets
+              readOnly: true
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: cache-storage
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-cache-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: firebase-secret
+          secret:
+            secretName: {{ .Release.Name }}-firebase-secret

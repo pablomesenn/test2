@@ -1,0 +1,33 @@
+# Rust
+target/
+Cargo.lock
+
+# Java
+*.class
+*.jar
+*.war
+target/
+.gradle/
+build/
+
+# Node
+node_modules/
+.env
+.env.local
+dist/
+
+# Helm
+*.tgz
+charts/
+
+# Misc
+.DS_Store
+*.log
+
+firebase-service-account.json
+dns-interceptor/geoip/*.mmdb
+
+#IP DB
+dns-interceptor/geoip/*.mmdb
+
+.env.example
