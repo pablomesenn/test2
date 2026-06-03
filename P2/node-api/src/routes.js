@@ -1,5 +1,5 @@
 import dns from 'node:dns/promises';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { config } from './config.js';
 import { handleCorsPreflight, readJson, sendError, sendJson, getPathname } from './http.js';
 import {
@@ -17,6 +17,15 @@ import {
   listUrlRules,
   updateDomain,
   updateUrlRule,
+  createUser,
+  listUsers,
+  getUserById,
+  findUserByUsername,
+  updateUser,
+  deleteUser,
+  createSession,
+  findSessionByTokenHash,
+  deleteSession,
 } from './store.js';
 import { verifyIdToken, getAdminApp } from './firebase.js';
 
@@ -79,6 +88,44 @@ function buildVerificationToken() {
 
 function hashSecret(secret) {
   return createHash('sha256').update(secret).digest('hex');
+}
+
+const SESSION_TTL_SECONDS = Number(process.env.ZONAL_SESSION_TTL_SECONDS ?? 3600);
+
+function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const derived = scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${derived}`;
+}
+
+function verifyPassword(password, stored) {
+  const [scheme, salt, hash] = String(stored ?? '').split('$');
+  if (scheme !== 'scrypt' || !salt || !hash) {
+    return false;
+  }
+
+  const derived = scryptSync(password, salt, 64);
+  const expected = Buffer.from(hash, 'hex');
+  return derived.length === expected.length && timingSafeEqual(derived, expected);
+}
+
+function assertUsername(username) {
+  if (!username || !/^[a-z0-9._-]{2,64}$/i.test(username)) {
+    throw Object.assign(new Error('Usuario inválido (2-64: letras, números, . _ -)'), { statusCode: 400 });
+  }
+}
+
+function publicUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    createdAt: user.createdAt ?? null,
+    updatedAt: user.updatedAt ?? null,
+  };
+}
+
+function buildSessionToken() {
+  return `sess_${randomUUID().replace(/-/g, '')}${randomUUID().replace(/-/g, '')}`;
 }
 
 function serializeFirebaseUser(userRecord) {
@@ -472,6 +519,191 @@ async function handleDeleteApiKey(req, res, user, domainId, keyId) {
   return sendJson(res, 200, { ok: true });
 }
 
+async function handleListUsers(req, res, user, domainId) {
+  const domain = await getDomainById(domainId);
+  if (!domain) {
+    return sendError(res, 404, 'Dominio no encontrado');
+  }
+
+  if (domain.ownerUid !== user.uid) {
+    return sendError(res, 403, 'No autorizado');
+  }
+
+  const users = await listUsers(domainId);
+  return sendJson(res, 200, { users: users.map(publicUser) });
+}
+
+async function handleCreateUser(req, res, user, domainId) {
+  const domain = await getDomainById(domainId);
+  if (!domain) {
+    return sendError(res, 404, 'Dominio no encontrado');
+  }
+
+  if (domain.ownerUid !== user.uid) {
+    return sendError(res, 403, 'No autorizado');
+  }
+
+  const body = await readJson(req);
+  const username = String(body.username ?? '').trim();
+  const password = String(body.password ?? '');
+  assertUsername(username);
+  if (password.length < 6) {
+    return sendError(res, 400, 'La contraseña debe tener al menos 6 caracteres');
+  }
+
+  const existing = await findUserByUsername(domainId, username);
+  if (existing) {
+    return sendError(res, 409, 'Ya existe un usuario con ese nombre en este dominio');
+  }
+
+  const created = await createUser(domainId, {
+    username,
+    passwordHash: hashPassword(password),
+  });
+
+  return sendJson(res, 201, {
+    user: { id: created.id, username, createdAt: new Date().toISOString() },
+  });
+}
+
+async function handleUpdateUser(req, res, user, domainId, userId) {
+  const domain = await getDomainById(domainId);
+  if (!domain) {
+    return sendError(res, 404, 'Dominio no encontrado');
+  }
+
+  if (domain.ownerUid !== user.uid) {
+    return sendError(res, 403, 'No autorizado');
+  }
+
+  const target = await getUserById(domainId, userId);
+  if (!target) {
+    return sendError(res, 404, 'Usuario no encontrado');
+  }
+
+  const body = await readJson(req);
+  const patch = {};
+
+  if (body.username !== undefined) {
+    const username = String(body.username).trim();
+    assertUsername(username);
+    if (username !== target.username) {
+      const dup = await findUserByUsername(domainId, username);
+      if (dup && dup.id !== userId) {
+        return sendError(res, 409, 'Ya existe un usuario con ese nombre en este dominio');
+      }
+      patch.username = username;
+    }
+  }
+
+  if (body.password !== undefined) {
+    const password = String(body.password);
+    if (password.length < 6) {
+      return sendError(res, 400, 'La contraseña debe tener al menos 6 caracteres');
+    }
+    patch.passwordHash = hashPassword(password);
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return sendError(res, 400, 'Nada que actualizar');
+  }
+
+  await updateUser(domainId, userId, patch);
+
+  return sendJson(res, 200, {
+    user: {
+      id: userId,
+      username: patch.username ?? target.username,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+async function handleDeleteUser(req, res, user, domainId, userId) {
+  const domain = await getDomainById(domainId);
+  if (!domain) {
+    return sendError(res, 404, 'Dominio no encontrado');
+  }
+
+  if (domain.ownerUid !== user.uid) {
+    return sendError(res, 403, 'No autorizado');
+  }
+
+  const target = await getUserById(domainId, userId);
+  if (!target) {
+    return sendError(res, 404, 'Usuario no encontrado');
+  }
+
+  await deleteUser(domainId, userId);
+  return sendJson(res, 200, { ok: true });
+}
+
+// Público: lo invoca la UI (formulario de la caché zonal). Valida credenciales
+// usuario/contraseña de un dominio y emite un token de sesión.
+async function handleZonalAuthValidate(req, res) {
+  const body = await readJson(req);
+  const domainName = normalizeDomainName(body.domainName);
+  const username = String(body.username ?? '').trim();
+  const password = String(body.password ?? '');
+
+  if (!domainName || !username || !password) {
+    return sendError(res, 400, 'Faltan domainName, username o password');
+  }
+
+  const domain = await findDomainByDomainName(domainName);
+  if (!domain || !domain.verified) {
+    // No revelar si el dominio existe o no.
+    return sendError(res, 401, 'invalid_credentials');
+  }
+
+  const target = await findUserByUsername(domain.id, username);
+  if (!target || !verifyPassword(password, target.passwordHash)) {
+    return sendError(res, 401, 'invalid_credentials');
+  }
+
+  const rawToken = buildSessionToken();
+  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
+  await createSession({
+    domainId: domain.id,
+    domainName: domain.domainName,
+    userId: target.id,
+    username: target.username,
+    tokenHash: hashSecret(rawToken),
+    expiresAt,
+  });
+
+  return sendJson(res, 200, { sessionToken: rawToken, expiresAt });
+}
+
+// Lo invoca la caché zonal (con x-api-key) para verificar la sesión en
+// peticiones posteriores a la autenticación.
+async function handleZonalAuthVerify(req, res) {
+  await requireServiceKey(req);
+
+  const body = await readJson(req);
+  const rawToken = String(body.sessionToken ?? body.token ?? '');
+  if (!rawToken) {
+    return sendError(res, 400, 'Falta sessionToken');
+  }
+
+  const session = await findSessionByTokenHash(hashSecret(rawToken));
+  if (!session) {
+    return sendJson(res, 200, { valid: false });
+  }
+
+  if (session.expiresAt && Date.parse(session.expiresAt) < Date.now()) {
+    await deleteSession(session.id);
+    return sendJson(res, 200, { valid: false });
+  }
+
+  return sendJson(res, 200, {
+    valid: true,
+    domainName: session.domainName,
+    username: session.username,
+    expiresAt: session.expiresAt,
+  });
+}
+
 async function handleCacheConfig(req, res, domainName) {
   await requireServiceKey(req);
 
@@ -587,6 +819,33 @@ export async function handleRequest(req, res) {
 
       if (segments.length === 4 && segments[2] === 'api-keys' && method === 'DELETE') {
         return await handleDeleteApiKey(req, res, user, domainId, segments[3]);
+      }
+
+      if (segments.length === 3 && segments[2] === 'users' && method === 'GET') {
+        return await handleListUsers(req, res, user, domainId);
+      }
+
+      if (segments.length === 3 && segments[2] === 'users' && method === 'POST') {
+        return await handleCreateUser(req, res, user, domainId);
+      }
+
+      if (segments.length === 4 && segments[2] === 'users') {
+        const userId = segments[3];
+        if (method === 'PUT') {
+          return await handleUpdateUser(req, res, user, domainId, userId);
+        }
+        if (method === 'DELETE') {
+          return await handleDeleteUser(req, res, user, domainId, userId);
+        }
+      }
+    }
+
+    if (segments[0] === 'zonal-auth' && segments.length === 2 && method === 'POST') {
+      if (segments[1] === 'validate') {
+        return await handleZonalAuthValidate(req, res);
+      }
+      if (segments[1] === 'verify') {
+        return await handleZonalAuthVerify(req, res);
       }
     }
 

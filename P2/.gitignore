@@ -30,4 +30,4 @@ dns-interceptor/geoip/*.mmdb
 #IP DB
 dns-interceptor/geoip/*.mmdb
 
-.env.example
+firebase-key.json

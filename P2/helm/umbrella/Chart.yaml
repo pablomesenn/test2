@@ -1,0 +1,31 @@
+apiVersion: v2
+name: ic7602-p2
+description: |
+  Umbrella chart del Proyecto 2 de Redes (IC-7602) — TEC 2026.
+  Despliega todos los componentes del proxy/cache con geolocalización:
+    - DNS Interceptor (Rust)
+    - Zonal Cache (Rust)
+    - REST API Java (Spring Boot)
+    - Apache Server (HTTP estático)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Equipo P2 IC-7602
+
+dependencies:
+  - name: dns-interceptor
+    version: "0.1.0"
+    repository: "file://../dns-interceptor"
+
+  - name: zonal-cache
+    version: "0.1.0"
+    repository: "file://../zonal-cache"
+
+  - name: rest-api-java
+    version: "0.1.0"
+    repository: "file://../rest-api-java"
+
+  - name: apache-server
+    version: "0.1.0"
+    repository: "file://../apache-server"

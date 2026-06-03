@@ -444,14 +444,21 @@ mod tests {
             .put("d.com", "a", b"12345", "text/plain", 200, None)
             .await
             .unwrap();
-        // Tocar "a" para que sea más reciente.
-        let _ = cache.get("d.com", "a").await.unwrap();
         cache
             .put("d.com", "b", b"67890", "text/plain", 200, None)
             .await
             .unwrap();
 
-        // Insertar tercero: debería evictar "b" (más viejo en last_used).
+        // Fijar last_used explícitamente: a=200 (más reciente → sobrevive),
+        // b=100 (más antiguo → víctima LRU).
+        // Sin esto, get() puede asignar el mismo timestamp que la inserción
+        // si corre en el mismo segundo, haciendo el test no determinista.
+        if let Some(bkt) = cache.buckets.get_mut("d.com") {
+            if let Some(m) = bkt.entries.get_mut("a") { m.entry.last_used = 200; }
+            if let Some(m) = bkt.entries.get_mut("b") { m.entry.last_used = 100; }
+        }
+
+        // Insertar tercero: debe evictar "b" (last_used más bajo).
         cache
             .put("d.com", "c", b"abcde", "text/plain", 200, None)
             .await
@@ -459,8 +466,9 @@ mod tests {
 
         assert!(
             cache.contains("d.com", "a"),
-            "a debió quedar (era el más recientemente usado)"
+            "a debió quedar (last_used=200, el más reciente)"
         );
+        assert!(!cache.contains("d.com", "b"), "b debe ser evictado (last_used=100, LRU)");
         assert!(cache.contains("d.com", "c"));
         let stats = cache.stats();
         assert_eq!(stats.total_size_bytes, 10);
@@ -545,15 +553,21 @@ mod tests {
             .put("d.com", "b", b"67890", "text/plain", 200, None)
             .await
             .unwrap();
-        // Tocar "b" — ahora es el más recientemente usado.
-        let _ = cache.get("d.com", "b").await.unwrap();
+
+        // Fijar last_used explícitamente: b=999 (MRU → víctima), a=1 (más antiguo → sobrevive).
+        // Sin esto, get() puede asignar el mismo timestamp que la inserción si corre
+        // en el mismo segundo, haciendo el test no determinista.
+        if let Some(bkt) = cache.buckets.get_mut("d.com") {
+            if let Some(m) = bkt.entries.get_mut("a") { m.entry.last_used = 1;   }
+            if let Some(m) = bkt.entries.get_mut("b") { m.entry.last_used = 999; }
+        }
+
         cache
             .put("d.com", "c", b"abcde", "text/plain", 200, None)
             .await
             .unwrap();
 
-        // MRU evicta el más recientemente usado al momento de la evicción.
-        // Tras get("b"), "b" era MRU; al insertar "c", se evictó "b".
+        // MRU evicta el más recientemente usado → "b" (last_used=999).
         assert!(!cache.contains("d.com", "b"), "MRU debe evictar b");
         assert!(cache.contains("d.com", "a"));
     }
