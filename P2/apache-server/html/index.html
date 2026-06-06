@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IC-7602 P2 — Apache Server</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 1rem;
+      padding: 2.5rem 3rem;
+      max-width: 640px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+    }
+
+    .badge {
+      display: inline-block;
+      background: #0ea5e9;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .info-item {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+
+    .info-item .label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-item .value {
+      font-size: 0.95rem;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: #064e3b;
+      border: 1px solid #065f46;
+      border-radius: 0.5rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      color: #6ee7b7;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #34d399;
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    footer {
+      margin-top: 2rem;
+      color: #475569;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <span class="badge">IC-7602 · Proyecto 2</span>
+    <h1>Apache Server</h1>
+    <p class="subtitle">
+      Servidor de origen para el Proxy/Cache Zonal. Sirve contenido estático
+      que es interceptado, almacenado y servido por las Zonal Caches según
+      las reglas definidas en Firebase.
+    </p>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="label">Componente</div>
+        <div class="value">Apache HTTP Server</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Versión</div>
+        <div class="value">2.4 (Alpine)</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Deploy</div>
+        <div class="value">Kubernetes · Helm</div>
+      </div>
+      <div class="info-item">
+        <div class="label">Curso</div>
+        <div class="value">Redes · TEC · 2026</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="dot"></div>
+      Servidor activo y respondiendo correctamente
+    </div>
+  </div>
+
+  <footer>
+    Tecnológico de Costa Rica &mdash; Escuela de Ingeniería en Computación
+  </footer>
+
+</body>
+</html>

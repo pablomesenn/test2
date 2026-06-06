@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zonal-cache
+description: Zonal Cache HTTP proxy con autenticación y caché en disco para IC7602 P2
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

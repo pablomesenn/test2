@@ -1,0 +1,12 @@
+apiVersion: v2
+name: apache-server
+description: Apache HTTP Server — origen estático para la Zonal Cache del Proyecto 2 IC-7602
+type: application
+version: 0.1.0
+appVersion: "2.4"
+keywords:
+  - apache
+  - http
+  - static
+maintainers:
+  - name: Equipo P2 IC-7602
